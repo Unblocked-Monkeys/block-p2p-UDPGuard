@@ -1,32 +1,32 @@
 #!/bin/bash
 
 # ---------------------------------------------------
-# Bloqueo de tráfico BitTorrent con iptables + ipset
+# BitTorrent Traffic Blocking with iptables + ipset
 # ---------------------------------------------------
-#  - Detección profunda de paquetes (hasta 1500 bytes)
-#  - Bloqueo temporal de direcciones IP
-#  - Manejo de listas de ignorados (DNS, rangos específicos, IPs del servidor)
+#  - Deep Packet Inspection (up to 1500 bytes)
+#  - Temporary IP address blocking
+#  - Handling of ignore lists (DNS, specific ranges, server IPs)
 # ---------------------------------------------------
 
-# Verificar si se está ejecutando como root
+# Verify if running as root
 if [ "$(id -u)" != "0" ]; then
-   echo "Este script debe ejecutarse como root" >&2
+   echo "This script must be run as root" >&2
    exit 1
 fi
 
 # ---------------------------------------------------
-# CONFIGURACIÓN
+# CONFIGURATION
 # ---------------------------------------------------
 IPSET_NAME="torrent_block"
 
-# Detectar la interfaz por defecto automáticamente
+# Detect the default interface automatically
 default_int=$(ip route list | grep '^default' | grep -oP 'dev \K\S+')
 
-# Definir las interfaces que deseas monitorear/bloquear
-# Añade o modifica tus interfaces aquí y agrega la interfaz por defecto si no está ya incluida
-INITIAL_INTERFACES=("tun0" "tun1" "eth0")
+# Define the interfaces you want to monitor/block
+# Add or modify your interfaces here and add the default interface if not already included
+INITIAL_INTERFACES=("eth0")
 
-# Función para agregar la interfaz por defecto si no está en la lista inicial
+# Function to add the default interface if not in the initial list
 add_default_interface() {
     local default_interface="$1"
     local exists=false
@@ -48,22 +48,22 @@ add_default_interface "$default_int"
 
 LOG_PREFIX="TORRENT_BLOCK"
 MAX_ENTRIES=100000
-BLOCK_DURATION=18000  # Duración en segundos (5 horas)
+BLOCK_DURATION=18000  # Duration in seconds (5 hours)
 HIGH_PORTS="6881:65535"
 
-# Rutas para el archivo de log (ajusta según tu sistema)
+# Paths for the log file (adjust according to your system)
 LOG_FILE="/var/log/kern.log"
 if [ ! -f "$LOG_FILE" ]; then
     LOG_FILE="/var/log/messages"
 fi
 
 # ---------------------------------------------------
-# RECOLECCIÓN DE IPs LOCALES DEL SERVIDOR
+# COLLECTION OF LOCAL SERVER IPs
 # ---------------------------------------------------
-# Obtener todas las IPs locales del servidor (excluyendo loopback)
+# Get all local server IPs (excluding loopback)
 SERVER_IPS=$(ip -o addr show | awk '!/^[0-9]+: lo:/ && $3 == "inet" {split($4, a, "/"); print a[1]}')
 
-# Función para verificar IPs del servidor (o cliente principal)
+# Function to verify server IPs (or main client)
 is_server_ip() {
     local ip=$1
     for server_ip in $SERVER_IPS; do
@@ -75,7 +75,7 @@ is_server_ip() {
 }
 
 # ---------------------------------------------------
-# LISTA DE IPs DNS A IGNORAR
+# LIST OF DNS IPs TO IGNORE
 # ---------------------------------------------------
 is_dns_ip() {
     local ip=$1
@@ -89,9 +89,9 @@ is_dns_ip() {
 }
 
 # ---------------------------------------------------
-# LISTA DE RANGOS A IGNORAR
+# LIST OF IP RANGES TO IGNORE
 # ---------------------------------------------------
-# Se ignorarán completamente los siguientes rangos:
+# The following ranges will be completely ignored:
 #   - 10.9.0.0/22 (10.9.0.0 - 10.9.3.255)
 #   - 10.8.0.0/22 (10.8.0.0 - 10.8.3.255)
 is_ignored_ip_range() {
@@ -104,18 +104,18 @@ is_ignored_ip_range() {
 }
 
 # ---------------------------------------------------
-# CREAR O LIMPIAR IPSET
+# CREATE OR CLEAN IPSET
 # ---------------------------------------------------
 if ! ipset list -n | grep -qw "$IPSET_NAME"; then
-    # Si no existe, crearlo
+    # If it doesn't exist, create it
     ipset create "$IPSET_NAME" hash:ip maxelem "$MAX_ENTRIES"
 fi
 
-# Limpiar reglas iptables existentes relacionadas con este ipset
+# Clean existing iptables rules related to this ipset
 iptables-save | grep -v "$IPSET_NAME" | iptables-restore
 
 # ---------------------------------------------------
-# INSERTAR REGLAS DE BLOQUEO BIDIRECCIONAL
+# INSERT BIDIRECTIONAL BLOCKING RULES
 # ---------------------------------------------------
 for chain in INPUT OUTPUT FORWARD; do
     iptables -I "$chain" -m set --match-set "$IPSET_NAME" src -j DROP
@@ -123,7 +123,7 @@ for chain in INPUT OUTPUT FORWARD; do
 done
 
 # ---------------------------------------------------
-# PATRONES DE DETECCIÓN PROFUNDA (DPI)
+# DEEP PACKET INSPECTION (DPI) PATTERNS
 # ---------------------------------------------------
 patterns=(
     "BitTorrent"
@@ -148,18 +148,18 @@ patterns=(
 )
 
 # ---------------------------------------------------
-# AÑADIR REGLAS DE INSPECCIÓN
+# ADD INSPECTION RULES
 # ---------------------------------------------------
-# Se inspeccionan los primeros 1500 bytes en el tráfico TCP/UDP
-# y se busca cualquiera de las cadenas definidas en "patterns".
+# The first 1500 bytes in TCP/UDP traffic are inspected
+# and any of the strings defined in "patterns" are searched for.
 for intf in "${INTERFACES[@]}"; do
     for protocol in tcp udp; do
         for str in "${patterns[@]}"; do
-            # Tráfico saliente (FORWARD -o)
+            # Outgoing traffic (FORWARD -o)
             iptables -I FORWARD -o "$intf" -p "$protocol" --dport "$HIGH_PORTS" \
                 -m string --string "$str" --algo bm --from 0 --to 1500 \
                 -j LOG --log-prefix "$LOG_PREFIX OUT: "
-            # Tráfico entrante (FORWARD -i)
+            # Incoming traffic (FORWARD -i)
             iptables -I FORWARD -i "$intf" -p "$protocol" --sport "$HIGH_PORTS" \
                 -m string --string "$str" --algo bm --from 0 --to 1500 \
                 -j LOG --log-prefix "$LOG_PREFIX IN: "
@@ -168,34 +168,34 @@ for intf in "${INTERFACES[@]}"; do
 done
 
 # ---------------------------------------------------
-# FUNCIÓN PARA BLOQUEAR CONEXIONES TORNENT (Solo IPs remotas)
+# FUNCTION TO BLOCK TORRENT CONNECTIONS (Remote IPs only)
 # ---------------------------------------------------
 block_offenders() {
-    echo "Monitoreando logs en: $LOG_FILE"
+    echo "Monitoring logs in: $LOG_FILE"
     tail -Fn0 "$LOG_FILE" | while read -r line; do
         if echo "$line" | grep -q "$LOG_PREFIX"; then
-            # Extraer las IPs de origen y destino del log
+            # Extract source and destination IPs from the log
             src_ip=$(echo "$line" | grep -oP 'SRC=\K[0-9.]+')
             dst_ip=$(echo "$line" | grep -oP 'DST=\K[0-9.]+')
 
             for ip in "$src_ip" "$dst_ip"; do
                 if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                     if is_server_ip "$ip"; then
-                        echo "Ignorando IP del servidor: $ip"
+                        echo "Ignoring server IP: $ip"
                     elif is_dns_ip "$ip"; then
-                        echo "Ignorando IP DNS: $ip"
+                        echo "Ignoring DNS IP: $ip"
                     elif is_ignored_ip_range "$ip"; then
-                        echo "Ignorando IP dentro del rango no bloqueado: $ip"
+                        echo "Ignoring IP within non-blocked range: $ip"
                     else
-                        # Bloquear la IP solo si no está ya en el ipset
+                        # Block the IP only if it's not already in the ipset
                         if ! ipset test "$IPSET_NAME" "$ip" 2>/dev/null; then
-                            echo "Bloqueando IP sospechosa: $ip"
+                            echo "Blocking suspicious IP: $ip"
                             ipset add "$IPSET_NAME" "$ip"
-                            # Programar el desbloqueo después de BLOCK_DURATION
+                            # Schedule unblocking after BLOCK_DURATION
                             (
                                 sleep "$BLOCK_DURATION"
                                 ipset del "$IPSET_NAME" "$ip" 2>/dev/null && \
-                                    echo "Desbloqueada IP: $ip"
+                                    echo "Unblocked IP: $ip"
                             ) &
                         fi
                     fi
@@ -206,23 +206,22 @@ block_offenders() {
 }
 
 # ---------------------------------------------------
-# FUNCIÓN DE LIMPIEZA
+# CLEANUP FUNCTION
 # ---------------------------------------------------
 cleanup() {
-    echo -e "\n[+] Limpiando reglas de iptables e ipset..."
+    echo -e "\n[+] Cleaning iptables rules and ipset..."
     iptables-save | grep -v "$IPSET_NAME" | iptables-restore
     ipset destroy "$IPSET_NAME"
     exit 0
 }
 
-# Capturar señales para limpiar reglas al finalizar
+# Capture signals to clean rules on exit
 trap cleanup SIGINT SIGTERM
 
 # ---------------------------------------------------
-# INICIO
+# START
 # ---------------------------------------------------
-echo "[+] Script de bloqueo de BitTorrent en ejecución."
-echo "[+] IPSET: $IPSET_NAME  |  Detección profunda activa."
-echo "[+] Interfaces monitoreadas: ${INTERFACES[@]}"
-echo "[+] UnknownDeVPN"
+echo "[+] BitTorrent blocking script running."
+echo "[+] IPSET: $IPSET_NAME  |  Deep packet inspection active."
+echo "[+] Monitored interfaces: ${INTERFACES[@]}"
 block_offenders

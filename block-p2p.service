@@ -1,0 +1,14 @@
+[Unit]
+Description=Prevent bittorrent DMCA claims
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/usr/bin/block-p2p.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
