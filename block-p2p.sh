@@ -92,12 +92,11 @@ is_dns_ip() {
 # LIST OF IP RANGES TO IGNORE
 # ---------------------------------------------------
 # The following ranges will be completely ignored:
-#   - 10.9.0.0/22 (10.9.0.0 - 10.9.3.255)
-#   - 10.8.0.0/22 (10.8.0.0 - 10.8.3.255)
+#   - 192.168.0.0/16
 is_ignored_ip_range() {
     local ip=$1
 
-    if [[ $ip =~ ^10\.9\.[0-3]\.[0-9]{1,3}$ ]] || [[ $ip =~ ^10\.8\.[0-3]\.[0-9]{1,3}$ ]]; then
+    if [[ $ip =~ ^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$ ]] ; then
         return 0
     fi
     return 1
