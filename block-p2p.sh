@@ -48,7 +48,7 @@ add_default_interface "$default_int"
 
 LOG_PREFIX="TORRENT_BLOCK"
 MAX_ENTRIES=100000
-BLOCK_DURATION=18000  # Duration in seconds (5 hours)
+BLOCK_DURATION=600  # Duration in seconds (10 min)
 HIGH_PORTS="6881:65535"
 
 # Paths for the log file (adjust according to your system)
