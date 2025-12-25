@@ -89,6 +89,21 @@ is_dns_ip() {
 }
 
 # ---------------------------------------------------
+# LIST OF DNS IPs TO IGNORE
+# ---------------------------------------------------
+is_entrypoints_ip() {
+    local ip=$1
+    local entry_ips=("77.232.138.105" "92.255.109.190" "89.223.121.88")
+    for entry_ip in "${entry_ips[@]}"; do
+        if [ "$ip" == "entry_ip" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+# ---------------------------------------------------
 # LIST OF IP RANGES TO IGNORE
 # ---------------------------------------------------
 # The following ranges will be completely ignored:
@@ -155,11 +170,11 @@ for intf in "${INTERFACES[@]}"; do
     for protocol in tcp udp; do
         for str in "${patterns[@]}"; do
             # Outgoing traffic (FORWARD -o)
-            iptables -I FORWARD -o "$intf" -p "$protocol" --dport "$HIGH_PORTS" \
+            iptables -I OUTPUT -o "$intf" -p "$protocol" --dport "$HIGH_PORTS" \
                 -m string --string "$str" --algo bm --from 0 --to 1500 \
                 -j LOG --log-prefix "$LOG_PREFIX OUT: "
             # Incoming traffic (FORWARD -i)
-            iptables -I FORWARD -i "$intf" -p "$protocol" --sport "$HIGH_PORTS" \
+            iptables -I INPUT -i "$intf" -p "$protocol" --sport "$HIGH_PORTS" \
                 -m string --string "$str" --algo bm --from 0 --to 1500 \
                 -j LOG --log-prefix "$LOG_PREFIX IN: "
         done
@@ -183,6 +198,8 @@ block_offenders() {
                         echo "Ignoring server IP: $ip"
                     elif is_dns_ip "$ip"; then
                         echo "Ignoring DNS IP: $ip"
+                    elif is_entrypoints_ip "$ip"; then
+                        echo "Ignoring entrypoint IP: $ip"
                     elif is_ignored_ip_range "$ip"; then
                         echo "Ignoring IP within non-blocked range: $ip"
                     else
