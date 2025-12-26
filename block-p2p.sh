@@ -89,13 +89,13 @@ is_dns_ip() {
 }
 
 # ---------------------------------------------------
-# LIST OF DNS IPs TO IGNORE
+# LIST OF entry points IPs TO IGNORE
 # ---------------------------------------------------
 is_entrypoints_ip() {
     local ip=$1
     local entry_ips=("77.232.138.105" "92.255.109.190" "89.223.121.88")
     for entry_ip in "${entry_ips[@]}"; do
-        if [ "$ip" == "entry_ip" ]; then
+        if [ "$ip" == "$entry_ip" ]; then
             return 0
         fi
     done
@@ -111,9 +111,9 @@ is_entrypoints_ip() {
 is_ignored_ip_range() {
     local ip=$1
 
-    if [[ $ip =~ ^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$ ]] ; then
-        return 0
-    fi
+#    if [[ $ip =~ ^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$ ]] ; then
+#        return 0
+#    fi
     return 1
 }
 
@@ -226,7 +226,7 @@ block_offenders() {
 # ---------------------------------------------------
 cleanup() {
     echo -e "\n[+] Cleaning iptables rules and ipset..."
-    iptables-save | grep -v "$IPSET_NAME" | iptables-restore
+    iptables-restore < /etc/iptables/rules.v4
     ipset destroy "$IPSET_NAME"
     exit 0
 }
