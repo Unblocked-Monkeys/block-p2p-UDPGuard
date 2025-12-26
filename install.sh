@@ -9,7 +9,13 @@ apt update &&\
   apt install -y iptables ipset ipcalc rsyslog grep coreutils &&\
   cp block-p2p.sh /usr/bin/block-p2p.sh &&\
   cp block-p2p.service /etc/systemd/system/block-p2p.service &&\
+  cp block-p2p-ipset-clear.service /etc/systemd/system/block-p2p-ipset-clear.service &&\
+  cp block-p2p-ipset-clear.timer /etc/systemd/system/block-p2p-ipset-clear.timer &&\
+  cp block-p2p-ipset-clear.sh /usr/bin/block-p2p-ipset-clear.sh &&\
   chmod +x /usr/bin/block-p2p.sh &&\
+  chmod +x /usr/bin/block-p2p-ipset-clear.sh &&\
   systemctl daemon-reload &&\
   systemctl enable --now block-p2p.service &&\
+  systemctl enable --now block-p2p-ipset-clear.service &&\
+  systemctl enable --now block-p2p-ipset-clear.timer &&\
   echo "Installation complete. Service working on a background"
