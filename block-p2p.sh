@@ -207,12 +207,6 @@ block_offenders() {
                         if ! ipset test "$IPSET_NAME" "$ip" 2>/dev/null; then
                             echo "Blocking suspicious IP: $ip"
                             ipset add "$IPSET_NAME" "$ip"
-                            # Schedule unblocking after BLOCK_DURATION
-                            (
-                                sleep "$BLOCK_DURATION"
-                                ipset del "$IPSET_NAME" "$ip" 2>/dev/null && \
-                                    echo "Unblocked IP: $ip"
-                            ) &
                         fi
                     fi
                 fi

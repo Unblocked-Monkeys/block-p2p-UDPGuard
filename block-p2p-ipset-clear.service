@@ -1,0 +1,13 @@
+[Unit]
+Description=Prevent bittorrent DMCA claims (clear ipset entries)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Group=root
+Type=oneshot
+ExecStart=/usr/bin/block-p2p-ipset-clear.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Prevent bittorrent DMCA claims (clear ipset entries)
+Wants=network-online.target
+After=network-online.target
+
+[Timer]
+OnUnitActiveSec=10m
+
+[Install]
+WantedBy=multi-user.target
