@@ -89,7 +89,14 @@ Ensure that `/var/log/kern.log` exists; otherwise, the script will use `/var/log
 - **Exclusions:**  
   - Local server IPs  
   - Known DNS servers (`8.8.8.8`, `8.8.4.4`, `1.1.1.1`, `1.0.0.1`)  
-  - Specific IP ranges (`10.9.0.0/22` and `10.8.0.0/22`)
+  - RFC1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) when `IGNORE_PRIVATE_RANGES=1` (default)  
+  - Any IPs listed in `EXTRA_IGNORE_IPS`
+- **IGNORE_PRIVATE_RANGES:** Set to `1` (default) to never block RFC1918 private ranges. **Keep this enabled when the monitored traffic is decapsulated VPN/tunnel client traffic whose inner source addresses fall in a private pool** — otherwise the script blocks its own clients and collapses throughput. Set to `0` only if you genuinely want to police private ranges.
+- **EXTRA_IGNORE_IPS:** Space-separated list of additional IPs that must never be blocked. Use this for per-deployment infrastructure that all client traffic is forwarded through (e.g. an upstream exit/proxy node or a parallel ingress), so you don't have to edit function bodies. Override at runtime:
+
+  ```bash
+  EXTRA_IGNORE_IPS="203.0.113.10 198.51.100.20" sudo ./block-p2p.sh
+  ```
 - **DPI Patterns:** Modify or extend the list of BitTorrent-related strings as needed.
 
 ## How It Works
