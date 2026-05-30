@@ -103,11 +103,13 @@ is_dns_ip() {
 }
 
 # ---------------------------------------------------
-# LIST OF entry points IPs TO IGNORE
+# LIST OF entry points / upstream IPs TO IGNORE
 # ---------------------------------------------------
+# Populated from EXTRA_IGNORE_IPS (see CONFIGURATION). Use it for
+# per-deployment infrastructure that all client traffic is forwarded through.
 is_entrypoints_ip() {
     local ip=$1
-    local entry_ips=("77.232.138.105" "92.255.109.190" "89.223.121.88" $EXTRA_IGNORE_IPS)
+    local entry_ips=($EXTRA_IGNORE_IPS)
     for entry_ip in "${entry_ips[@]}"; do
         if [ "$ip" == "$entry_ip" ]; then
             return 0
