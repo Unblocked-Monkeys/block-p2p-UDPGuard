@@ -51,6 +51,20 @@ MAX_ENTRIES=100000
 BLOCK_DURATION=600  # Duration in seconds (10 min)
 HIGH_PORTS="1024:65535"
 
+# Extra IPs that must never be blocked (space-separated). Use this for
+# per-deployment infrastructure that all client traffic is forwarded through,
+# e.g. an upstream exit/proxy node or a parallel ingress. Override at runtime
+# instead of editing the function bodies below:
+#   EXTRA_IGNORE_IPS="203.0.113.10 198.51.100.20" /usr/bin/block-p2p.sh
+EXTRA_IGNORE_IPS="${EXTRA_IGNORE_IPS:-}"
+
+# Treat RFC1918 private ranges (10/8, 172.16/12, 192.168/16) as never-block.
+# This is REQUIRED when the monitored traffic is decapsulated VPN/tunnel
+# client traffic whose inner source addresses fall in a private pool — without
+# it the script blocks its own clients and collapses throughput. Set to 0 only
+# if you genuinely want to police private ranges too.
+IGNORE_PRIVATE_RANGES="${IGNORE_PRIVATE_RANGES:-1}"
+
 # Paths for the log file (adjust according to your system)
 LOG_FILE="/var/log/kern.log"
 if [ ! -f "$LOG_FILE" ]; then
@@ -93,7 +107,7 @@ is_dns_ip() {
 # ---------------------------------------------------
 is_entrypoints_ip() {
     local ip=$1
-    local entry_ips=("77.232.138.105" "92.255.109.190" "89.223.121.88")
+    local entry_ips=("77.232.138.105" "92.255.109.190" "89.223.121.88" $EXTRA_IGNORE_IPS)
     for entry_ip in "${entry_ips[@]}"; do
         if [ "$ip" == "$entry_ip" ]; then
             return 0
@@ -106,14 +120,20 @@ is_entrypoints_ip() {
 # ---------------------------------------------------
 # LIST OF IP RANGES TO IGNORE
 # ---------------------------------------------------
-# The following ranges will be completely ignored:
-#   - 192.168.0.0/16
+# When IGNORE_PRIVATE_RANGES=1 the following RFC1918 ranges are never blocked:
+#   - 10.0.0.0/8
+#   - 172.16.0.0/12
+#   - 192.168.0.0/16  (typical VPN client pool, e.g. 192.168.0.0/19)
 is_ignored_ip_range() {
     local ip=$1
 
-#    if [[ $ip =~ ^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$ ]] ; then
-#        return 0
-#    fi
+    [ "$IGNORE_PRIVATE_RANGES" != "1" ] && return 1
+
+    if [[ $ip =~ ^10\. ]] ||
+       [[ $ip =~ ^192\.168\. ]] ||
+       [[ $ip =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]] ; then
+        return 0
+    fi
     return 1
 }
 
